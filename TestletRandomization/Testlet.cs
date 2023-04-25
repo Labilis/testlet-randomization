@@ -14,6 +14,12 @@ namespace TestletRandomization;
 /// </remarks>
 public class Testlet
 {
+    private static readonly Random Rnd = new();
+    private const int RandomizedPretestItemsCount = 2;
+    private const int InitialOperationalItemsCount = 6;
+    private const int InitialPretestItemsCount = 4;
+    private const int ItemsCountRequired = InitialOperationalItemsCount + InitialPretestItemsCount;
+    
     public string TestletId { get; }
     private readonly List<Item> _items;
 
@@ -29,20 +35,20 @@ public class Testlet
             throw new ArgumentException($"Wrong number of items: {items.Count} instead of {items.Count}",
                 nameof(items));
 
-        foreach (var validationRule in InputItemsValidationRules)
-        {
-            var itemsCountByType = items.Count(i => i.ItemType == validationRule.Key);
+        if (items.Count(i => i.ItemType == ItemType.Pretest) != InitialPretestItemsCount)
+            throw new ArgumentException(
+                $"Wrong number of items of type 'Pretest'. Only {InitialPretestItemsCount} items are allowed.",
+                nameof(items));
 
-            if (itemsCountByType != validationRule.Value)
-                throw new ArgumentException(
-                    $"Wrong number of items of type '{validationRule.Key}': {itemsCountByType} instead of {validationRule.Value}",
-                    nameof(items));
-        }
+        if (items.Count(i => i.ItemType == ItemType.Operational) != InitialOperationalItemsCount)
+            throw new ArgumentException(
+                $"Wrong number of items of type 'Operational'. Only {InitialOperationalItemsCount} items are allowed.",
+                nameof(items));
 
         TestletId = testletId;
         _items = items;
     }
-    
+
     public List<Item> Randomize()
     {
         return RandomizeWithPretestFirst(_items, RandomizedPretestItemsCount).ToList();
@@ -61,18 +67,4 @@ public class Testlet
 
         return pretestItems.Union(mixedItems);
     }
-
-    private const int RandomizedPretestItemsCount = 2;
-
-    private const int OperationalItemsCountInitial = 6;
-    private const int PretestItemsCountInitial = 4;
-    private const int ItemsCountRequired = OperationalItemsCountInitial + PretestItemsCountInitial;
-
-    private static readonly Random Rnd = new();
-
-    private static readonly IDictionary<ItemType, int> InputItemsValidationRules = new Dictionary<ItemType, int>
-    {
-        { ItemType.Operational, OperationalItemsCountInitial },
-        { ItemType.Pretest, PretestItemsCountInitial }
-    };
 }

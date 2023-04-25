@@ -43,7 +43,7 @@ public class TestletTests
         }).ToList();
 
         //Act
-        var testletInitial = new Testlet("testlet-id-01", items);
+        var testletInitial = new Testlet("testlet-id", items);
         var randomizedFirstTime = testletInitial.Randomize();
         var randomizedSecondTime = testletInitial.Randomize();
 
@@ -58,7 +58,7 @@ public class TestletTests
                 randomizedSecondTime.Any(i => randomizedFirstTime.IndexOf(i) != randomizedSecondTime.IndexOf(i));
             if (isRandomized)
             {
-                Assert.True(true);
+                Assert.True(isRandomized);
                 return;
             }
 
