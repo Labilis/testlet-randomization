@@ -1,67 +1,78 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using TestletRandomization.Enums;
+using TestletRandomization.Models;
 
 namespace TestletRandomization;
 
+/// <summary>
+///     There is a Testlet with a fixed set of 10 items.
+///     6 of the items are operational and 4 of them are pretest items.
+/// </summary>
+/// <remarks>
+///     The requirement is that the _order_ of these items should be randomized such that -
+///     o The first 2 items are always pretest items selected randomly from the 4 pretest items.
+///     o The next 8 items are mix of pretest and operational items ordered randomly from the remaining 8 items.
+/// </remarks>
 public class Testlet
 {
-    public string TestletId;
-
-    private readonly List<Item> Items;
+    public string TestletId { get; }
+    private List<Item> Items { get; }
 
     public Testlet(string testletId, List<Item> items)
     {
+        if (testletId == null)
+            throw new ArgumentNullException(nameof(testletId));
+
+        if (items == null)
+            throw new ArgumentNullException(nameof(items));
+
+        if (items.Count != ItemsCountRequired)
+            throw new ArgumentException($"Wrong number of items: {items.Count} instead of {items.Count}",
+                nameof(items));
+
+        foreach (var validationRule in InputItemsValidationRules)
+        {
+            var itemsCountByType = items.Count(i => i.ItemType == validationRule.Key);
+
+            if (itemsCountByType != validationRule.Value)
+                throw new ArgumentException(
+                    $"Wrong number of items of type '{validationRule.Key}': {itemsCountByType} instead of {validationRule.Value}",
+                    nameof(items));
+        }
+
         TestletId = testletId;
         Items = items;
     }
-
+    
     public List<Item> Randomize()
     {
-        return Randomize(Items, _randomizationSettings);
+        return RandomizeWithPretestFirst(Items, RandomizedPretestItemsCount).ToList();
     }
 
-    // Better to be extracted ind passed as parameter then.
-    // But to not amend the signatures and because of criteria describe only one case it is here as private member
-    private readonly Tuple<int, ItemTypeEnum[]>[] _randomizationSettings =
+    private static IEnumerable<Item> RandomizeWithPretestFirst(ICollection<Item> items, int ptetestItemsCount)
     {
-        new(2, new[] { ItemTypeEnum.Pretest }),
-        new(8, new[] { ItemTypeEnum.Pretest, ItemTypeEnum.Operational })
-    };
+        var pretestItems = items
+            .Where(i => i.ItemType == ItemType.Pretest)
+            .OrderBy(_ => Rnd.Next())
+            .Take(ptetestItemsCount).ToList();
+
+        var mixedItems = items
+            .Except(pretestItems)
+            .OrderBy(_ => Rnd.Next());
+
+        return pretestItems.Union(mixedItems);
+    }
+
+    private const int RandomizedPretestItemsCount = 2;
+
+    private const int OperationalItemsCountInitial = 6;
+    private const int PretestItemsCountInitial = 4;
+    private const int ItemsCountRequired = OperationalItemsCountInitial + PretestItemsCountInitial;
 
     private static readonly Random Rnd = new();
-    
-    // Can be extracted in
-    private static List<Item> Randomize(IEnumerable<Item> items,
-        IEnumerable<Tuple<int, ItemTypeEnum[]>> randomizationSettings)
+
+    private static readonly IDictionary<ItemType, int> InputItemsValidationRules = new Dictionary<ItemType, int>
     {
-        var itemsGroupedByType = items
-            .GroupBy(i => i.ItemType)
-            .ToDictionary(i => i.Key, gr => gr.ToList());
-
-        var result = new List<Item>();
-
-        foreach (var sectionSettings in randomizationSettings)
-        {
-            var requiredItemCount = sectionSettings.Item1;
-            var requiredItemTypes = sectionSettings.Item2;
-
-            for (var i = 0; i < requiredItemCount; i++)
-            {
-                var availableTypes = requiredItemTypes.Intersect(itemsGroupedByType.Keys).ToList();
-                if (availableTypes.Count == 0)
-                    throw new ValidationException("Not enough items of required types");
-
-                var randomRequiredItemType = availableTypes[Rnd.Next(availableTypes.Count)];
-                var itemsByType = itemsGroupedByType[randomRequiredItemType];
-                var randomItemIndex = Rnd.Next(itemsByType.Count);
-                var randomItem = itemsByType[randomItemIndex];
-
-                result.Add(randomItem);
-                itemsByType.RemoveAt(randomItemIndex);
-                if (itemsByType.Count == 0)
-                    itemsGroupedByType.Remove(randomRequiredItemType);
-            }
-        }
-
-        return result;
-    }
+        { ItemType.Operational, OperationalItemsCountInitial },
+        { ItemType.Pretest, PretestItemsCountInitial }
+    };
 }

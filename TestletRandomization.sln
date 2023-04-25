@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.33516.290
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestletRandomization", "TestletRandomization\TestletRandomization.csproj", "{06567A4E-97D8-4D4D-B31F-04E279F6EFED}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestletRandomization", "TestletRandomization\TestletRandomization.csproj", "{06567A4E-97D8-4D4D-B31F-04E279F6EFED}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestletRandomizationTests", "TestletRandomizationTests\TestletRandomizationTests.csproj", "{1C31D8E1-197F-4D98-9BE1-E8FA4F9ACC13}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestletRandomization.Tests", "TestletRandomizationTests\TestletRandomization.Tests.csproj", "{1C31D8E1-197F-4D98-9BE1-E8FA4F9ACC13}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

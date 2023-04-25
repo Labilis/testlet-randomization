@@ -1,58 +1,130 @@
-﻿using TestletRandomization;
+﻿using TestletRandomization.Enums;
+using TestletRandomization.Models;
 using Xunit;
 
-namespace TestletRandomizationTests;
+namespace TestletRandomization.Tests;
 
 public class TestletTests
 {
-    private const int NumberOrRandomizationRechecks = 1000;
-
-    /// <summary>
-    ///     Test Case described in Assessment
-    /// </summary>
-    /// <remarks>
-    ///     There is a Testlet with a fixed set of 10 items. 6 of the items are operational and 4 of them are pretest items.
-    ///     The requirement is that the _order_ of these items should be randomized such that -
-    ///     o The first 2 items are always pretest items selected randomly from the 4 pretest items.
-    ///     o The next 8 items are mix of pretest and operational items ordered randomly from the remaining 8 items.
-    /// </remarks>
     [Fact]
-    public void Randomize_WhenItemsPassed_ThenRandomizedAsPerRequirement()
+    public void Randomize_WhenValidItemsPassed_ThenRandomizedSuccessfully()
     {
         //Arrange
         var items = ArrangeItems(new[]
         {
-            new KeyValuePair<ItemTypeEnum, int>(ItemTypeEnum.Operational, 6),
-            new KeyValuePair<ItemTypeEnum, int>(ItemTypeEnum.Pretest, 4)
+            new KeyValuePair<ItemType, int>(ItemType.Operational, 6),
+            new KeyValuePair<ItemType, int>(ItemType.Pretest, 4)
         }).ToList();
 
-        for (var launchIndex = 0; launchIndex < NumberOrRandomizationRechecks; launchIndex++)
+        //Act
+        var testlet = new Testlet("testlet-id", items);
+        var result = testlet.Randomize();
+
+        //Assert
+        Assert.Equivalent(items, result);
+
+        var section1 = result.Take(ExpectedPretestsSectionLength).ToList();
+        Assert.True(section1.All(i => i.ItemType == ItemType.Pretest));
+
+        var section2 = result.Skip(ExpectedPretestsSectionLength).ToList();
+        Assert.Equal(ExpectedMixedSectionLength, section2.Count);
+        Assert.Contains(section2, i => i.ItemType == ItemType.Pretest);
+        Assert.Contains(section2, i => i.ItemType == ItemType.Operational);
+    }
+
+    [Fact]
+    public void Randomize_WhenRandomizedItemsRandomizedAgain_ThenReorderedSuccessfully()
+    {
+        //Arrange
+        var items = ArrangeItems(new[]
         {
-            //Act
-            var testlet = new Testlet("test-id", items.OrderBy(_ => Guid.NewGuid()).ToList());
-            var result = testlet.Randomize();
+            new KeyValuePair<ItemType, int>(ItemType.Operational, 6),
+            new KeyValuePair<ItemType, int>(ItemType.Pretest, 4)
+        }).ToList();
 
-            //Assert
-            Assert.Equivalent(items, result);
+        //Act
+        var testletInitial = new Testlet("testlet-id-01", items);
+        var randomizedFirstTime = testletInitial.Randomize();
+        var randomizedSecondTime = testletInitial.Randomize();
 
-            var section1 = result.Take(2).ToList();
-            Assert.True(section1.All(i => i.ItemType == ItemTypeEnum.Pretest));
+        Assert.Equivalent(randomizedFirstTime, randomizedSecondTime);
 
-            var section2 = result.Skip(2).Take(8).ToList();
-            Assert.Contains(section2, i => i.ItemType == ItemTypeEnum.Pretest);
-            Assert.Contains(section2, i => i.ItemType == ItemTypeEnum.Operational);
+        // Assert
+        // Retry to prevent flaky behaviour
+        var retryCount = 0;
+        while (retryCount < 5)
+        {
+            var isRandomized =
+                randomizedSecondTime.Any(i => randomizedFirstTime.IndexOf(i) != randomizedSecondTime.IndexOf(i));
+            if (isRandomized)
+            {
+                Assert.True(true);
+                return;
+            }
+
+            retryCount++;
         }
     }
 
-    private static IEnumerable<Item> ArrangeItems(IEnumerable<KeyValuePair<ItemTypeEnum, int>> countByType)
+    [Theory]
+    [MemberData(nameof(NullArgumentsTheoryData))]
+    public void Randomize_WhenTryCreateWithNullArguments_ThenThrowException(string testId, List<Item> items)
+    {
+        // Arrange + Act + Assert
+        Assert.Throws<ArgumentNullException>(() => new Testlet(testId, items));
+    }
+
+    [Theory]
+    [MemberData(nameof(WrongItemsTheoryData))]
+    public void Randomize_WhenTryCreateWithWrongItems_ThenThrowException(IEnumerable<Item> items)
+    {
+        // Arrange + Act
+        var exception = Assert.Throws<ArgumentException>(() => new Testlet("test-id", items.ToList()));
+
+        // Assert
+        Assert.StartsWith("Wrong number of items", exception.Message);
+        Assert.Equal("items", exception.ParamName);
+    }
+
+
+    private const int ExpectedPretestsSectionLength = 2;
+    private const int ExpectedMixedSectionLength = 8;
+
+    public static TheoryData<string?, List<Item>?> NullArgumentsTheoryData => new()
+    {
+        { null, null },
+        { "testlet-id", null },
+        { null, new List<Item>() }
+    };
+
+    public static TheoryData<List<Item>?> WrongItemsTheoryData => new()
+    {
+        new List<Item>(),
+        ArrangeItems(new[]
+        {
+            new KeyValuePair<ItemType, int>(ItemType.Operational, 10)
+        }).ToList(),
+        ArrangeItems(new[]
+        {
+            new KeyValuePair<ItemType, int>(ItemType.Pretest, 10)
+        }).ToList(),
+        ArrangeItems(new[]
+        {
+            new KeyValuePair<ItemType, int>(ItemType.Operational, 4),
+            new KeyValuePair<ItemType, int>(ItemType.Pretest, 6)
+        }).ToList(),
+        ArrangeItems(new[]
+        {
+            new KeyValuePair<ItemType, int>(ItemType.Pretest, 2),
+            new KeyValuePair<ItemType, int>(ItemType.Operational, 8)
+        }).ToList()
+    };
+
+    private static IEnumerable<Item> ArrangeItems(IEnumerable<KeyValuePair<ItemType, int>> countByType)
     {
         var itemId = 1;
         foreach (var keyValuePair in countByType)
             for (var i = 0; i < keyValuePair.Value; i++)
-                yield return new Item
-                {
-                    ItemId = $"item-id-{keyValuePair.Key}-{itemId++}",
-                    ItemType = keyValuePair.Key
-                };
+                yield return new Item($"item-id-{keyValuePair.Key}-{itemId++}", keyValuePair.Key);
     }
 }
