@@ -15,7 +15,7 @@ namespace TestletRandomization;
 public class Testlet
 {
     public string TestletId { get; }
-    private List<Item> Items { get; }
+    private readonly List<Item> _items;
 
     public Testlet(string testletId, List<Item> items)
     {
@@ -40,12 +40,12 @@ public class Testlet
         }
 
         TestletId = testletId;
-        Items = items;
+        _items = items;
     }
     
     public List<Item> Randomize()
     {
-        return RandomizeWithPretestFirst(Items, RandomizedPretestItemsCount).ToList();
+        return RandomizeWithPretestFirst(_items, RandomizedPretestItemsCount).ToList();
     }
 
     private static IEnumerable<Item> RandomizeWithPretestFirst(ICollection<Item> items, int ptetestItemsCount)
